@@ -7,8 +7,6 @@ from __future__ import absolute_import
 
 import os
 import os.path
-import shutil
-import tempfile
 import unittest
 
 import anyconfig.cli as TT
@@ -17,7 +15,6 @@ import anyconfig.query
 import anyconfig.schema
 import anyconfig.template
 import tests.common
-import tests.api
 
 from tests.common import CNF_0, skip_test
 
@@ -43,23 +40,20 @@ class Test_00(unittest.TestCase):
     """
 
 
+def run_and_check_exit_code(args=None, code=0, _not=False, exc_cls=SystemExit):
+    try:
+        TT.main(["dummy"] + ([] if args is None else args))
+    except exc_cls as exc:
+        ecode = getattr(exc, "code", 1)
+        assert (_not and ecode != code or ecode == code)
+
+
 class RunTestBase(unittest.TestCase):
 
     def run_and_check_exit_code(self, args=None, code=0, _not=False,
                                 exc_cls=SystemExit):
-        try:
-            TT.main(["dummy"] + ([] if args is None else args))
-        except exc_cls as exc:
-            ecode = getattr(exc, "code", 1)
-            (self.assertNotEqual if _not else self.assertEqual)(ecode, code)
-
-
-class RunTestWithTmpdir(RunTestBase):
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir)
+        run_and_check_exit_code(args=args, code=code, _not=_not,
+                                exc_cls=exc_cls)
 
 
 class Test_10(RunTestBase):
@@ -89,16 +83,20 @@ class Test_10(RunTestBase):
                                      _not=True)
 
 
-class Test_12(RunTestWithTmpdir):
-    infile = os.path.join(tests.common.resdir(), "00-cnf.json")
+def inifile_path():
+    return os.path.join(tests.common.resdir(), "00-cnf.json")
 
-    def test_60_unknown_out_file_type(self):
-        opath = os.path.join(self.tmpdir, "t.unknown_ext")
-        self.run_and_check_exit_code([self.infile, "-o", opath], _not=True)
 
-    def test_62_unknown_out_parser_type(self):
-        opath = os.path.join(self.tmpdir, "t.unknown_psr")
-        self.run_and_check_exit_code([self.infile, "-O", opath], _not=True)
+def test_run_with_unknown_out_file_type(tmp_path):
+    infile = inifile_path()
+    opath = str(tmp_path / "t.unknown_ext")
+    run_and_check_exit_code([infile, "-o", opath], _not=True)
+
+
+def test_run_with_unknown_out_parser_type(tmp_path):
+    infile = inifile_path()
+    opath = str(tmp_path / "t.unknown_psr")
+    run_and_check_exit_code([infile, "-O", opath], _not=True)
 
 
 class Test_20_Base(RunTestBase):

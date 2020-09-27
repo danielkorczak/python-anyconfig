@@ -65,7 +65,10 @@ def cleanup_workdir(workdir):
     >>> workdir = setup_workdir()
     >>> os.path.exists(workdir)
     True
-    >>> open(os.path.join(workdir, "workdir.stamp"), 'w').write("OK!" + lsep)
+    >>> import pathlib
+    >>> (pathlib.Path(workdir) / "workdir.stamp"
+    ...               ).write_text("OK!" + lsep)  # doctest: +SKIP
+    ...
     >>> cleanup_workdir(workdir)
     >>> os.path.exists(workdir)
     False

@@ -3,10 +3,13 @@
 # License: MIT
 #
 # pylint: disable=missing-docstring, unused-variable, invalid-name
+import io
 import os.path
 import os
 import unittest
 import unittest.mock
+
+import pytest
 
 import anyconfig.template as TT
 import tests.common
@@ -66,26 +69,6 @@ class Test(unittest.TestCase):
                 c_r = TT.render(fpath)
                 self.assertEqual(c_r, ctx)
 
-    def test_22_render__w_wrong_tpath(self):
-        if TT.SUPPORTED:
-            ng_t = os.path.join(self.workdir, "ng.j2")
-            ok_t = os.path.join(self.workdir, "ok.j2")
-            ok_t_content = "a: {{ a }}"
-            ok_content = "a: aaa"
-            ctx = dict(a="aaa", )
-
-            open(ok_t, 'w').write(ok_t_content)
-
-            with unittest.mock.patch("builtins.input") as mock_input:
-                mock_input.return_value = ok_t
-                c_r = TT.render(ng_t, ctx, ask=True)
-                self.assertEqual(c_r, ok_content)
-            try:
-                TT.render(ng_t, ctx, ask=False)
-                assert False  # force raising an exception.
-            except TT.TemplateNotFound:
-                pass
-
     def test_24_render__wo_paths(self):
         if TT.SUPPORTED:
             fname = self.templates[0][0]
@@ -125,5 +108,27 @@ class Test(unittest.TestCase):
             fpath = os.path.join(self.workdir, fname)
             c_r = TT.render(fpath, filters={"negate": negate})
             self.assertEqual(c_r, ctx)
+
+
+@pytest.mark.skipif(not TT.SUPPORTED, reason="jinja2 module is not available.")
+def test_22_render__w_wrong_tpath(tmp_path, monkeypatch):
+    ng_t = tmp_path / "ng.j2"
+    ok_t = tmp_path / "ok.j2"
+    ok_t_content = "a: {{ a }}"
+    ok_content = "a: aaa"
+    ctx = dict(a="aaa", )
+
+    ok_t.write_text(ok_t_content)
+
+    monkeypatch.setattr("sys.stdin", io.StringIO(str(ok_t) + "\n"))
+
+    c_r = TT.render(str(ng_t), ctx, ask=True)
+    assert c_r == ok_content
+
+    try:
+        TT.render(str(ng_t), ctx, ask=False)
+        assert False  # force raising an exception.
+    except TT.TemplateNotFound:
+        pass
 
 # vim:sw=4:ts=4:et:

@@ -13,6 +13,8 @@ import os.path
 import pathlib
 import unittest
 
+import pytest
+
 import anyconfig.api as TT
 import anyconfig.backends
 import anyconfig.backend.json
@@ -21,6 +23,7 @@ import anyconfig.processors
 import anyconfig.schema
 import anyconfig.template
 import tests.common
+
 
 from tests.common import (
     CNF_0, SCM_0, CNF_1, dicts_equal, resdir, skip_test
@@ -52,42 +55,29 @@ def _is_file_object(obj):
         return isinstance(obj, io.IOBase)
 
 
-class Test_10_find(unittest.TestCase):
+def test_find_by_parser_type_or_instance():
+    def _findall_by_type(typ, psrs):
+        return anyconfig.processors.findall_with_pred(
+            lambda p: typ == p.type(), psrs
+        )
 
+    cpath = "dummy.conf"
     psrs = anyconfig.backends.Parsers().list()
 
-    def _assert_isinstances(self, obj, clss, msg=False):
-        self.assertTrue(any(isinstance(obj, cls) for cls in clss),
-                        msg or "%r vs %r" % (obj, clss))
+    for psr in psrs:
+        refs = tuple(_findall_by_type(psr.type(), psrs))
+        assert isinstance(TT.find(cpath, psr.type()), refs), repr(psr.type())
+        assert isinstance(TT.find(cpath, psr()), refs), repr(psr())
 
-    def test_10_find__w_parser_type_or_instance(self):
-        def _findall_by_type(typ):
-            fnc = anyconfig.processors.findall_with_pred
-            return fnc(lambda p: typ == p.type(), self.psrs)
 
-        cpath = "dummy.conf"
-        for psr in self.psrs:
-            ldrs = _findall_by_type(psr.type())
-            self._assert_isinstances(TT.find(cpath, psr.type()), ldrs)
-            self._assert_isinstances(TT.find(cpath, psr()), ldrs)
+def test_find_by_unknown_parser_type():
+    with pytest.raises(TT.UnknownProcessorTypeError):
+        TT.find("a.cnf", forced_type="type_not_exist")
 
-    def test_20_find__w_parser_by_file(self):
-        def _find_ldrs_by_ext(ext):
-            fnc = anyconfig.processors.findall_with_pred
-            return fnc(lambda p: ext in p.extensions(), self.psrs)
 
-        for psr in self.psrs:
-            for ext in psr.extensions():
-                ldrs = _find_ldrs_by_ext(ext)
-                self._assert_isinstances(TT.find("dummy." + ext), ldrs)
-
-    def test_30_find__unknown_parser_type(self):
-        self.assertRaises(TT.UnknownProcessorTypeError,
-                          TT.find, "a.cnf", "type_not_exist")
-
-    def test_40_find__unknown_file_type(self):
-        self.assertRaises(TT.UnknownFileTypeError,
-                          TT.find, "dummy.ext_not_found")
+def test_find_by_unknown_file_type():
+    with pytest.raises(TT.UnknownFileTypeError):
+        TT.find("dummy.ext_not_found")
 
 
 class TestBase(unittest.TestCase):
